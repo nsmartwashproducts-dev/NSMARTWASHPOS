@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Smart-Wash — POS</title>
+
+<!-- PWA: makes the app installable on Android, iOS and PC (Windows/Mac/Linux) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B3230">
+<meta name="background-color" content="#F3F5F3">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="shortcut icon" href="icons/favicon.ico">
+
+<!-- iOS install support (Add to Home Screen) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Smart-Wash">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --teal-900:#081A30;
+    --teal-800:#0F2A4A;
+    --teal-700:#1C3E68;
+    --teal-100:#1E3A5F;
+    --amber:#E8A23C;
+    --amber-dark:#C6821F;
+    --bg:#0A1B33;
+    --card:#0F2444;
+    --line:#22406B;
+    --ink:#E8EEF7;
+    --muted:#8FA3C4;
+    --good:#3FBE8B;
+    --bad:#E5645A;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.num,.brand-name{font-family:'Space Grotesk',system-ui,sans-serif;}
+  button{font-family:inherit;}
+  a{color:inherit;}
+
+  /* ---------- layout ---------- */
+  #shell{display:flex;min-height:100vh;}
+  #sidebar{
+    width:230px;flex:0 0 230px;background:var(--teal-900);color:#EAF3F1;
+    display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 6px 22px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:16px;}
+  .brand-mark{
+    width:38px;height:38px;border-radius:8px;background:#fff;
+    display:flex;align-items:center;justify-content:center;color:var(--teal-900);
+    font-weight:700;font-family:'Space Grotesk';font-size:16px;flex:none;
+    overflow:hidden;padding:2px;
+  }
+  .brand-mark img{width:100%;height:100%;object-fit:contain;display:block;}
+  .brand-name{font-size:15px;font-weight:600;line-height:1.2;}
+  .brand-tag{font-size:11px;color:#9FC1BC;margin-top:1px;}
+  #install-btn{
+    display:none;align-items:center;justify-content:center;gap:8px;
+    margin:4px 0 2px;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.06);color:#EAF3F1;font-size:12.5px;font-weight:600;
+    cursor:pointer;font-family:inherit;
+  }
+  #install-btn:hover{background:rgba(255,255,255,.12);}
+  nav{display:flex;flex-direction:column;gap:3px;flex:1;}
+  .nav-btn{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+    background:none;border:none;color:#C9DEDA;font-size:14px;font-weight:500;text-align:left;cursor:pointer;
+  }
+  .nav-btn svg{flex:none;opacity:.85;}
+  .nav-btn:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .nav-btn.active{background:var(--teal-700);color:#fff;}
+  .side-foot{font-size:11px;color:#82A29D;padding:12px 8px 2px;border-top:1px solid rgba(255,255,255,.1);margin-top:10px;}
+
+  #main{flex:1;min-width:0;padding:28px 34px 60px;}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+  .page-head h1{font-size:22px;margin:0 0 4px;font-weight:600;}
+  .page-head .sub{color:var(--muted);font-size:13.5px;}
+  .head-actions{display:flex;gap:10px;align-items:center;}
+
+  select,input,textarea{
+    font-family:inherit;font-size:13.5px;padding:9px 11px;border-radius:8px;
+    border:1px solid var(--line);background:var(--teal-800);color:var(--ink);outline:none;
+  }
+  select:focus,input:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,162,60,.15);}
+  input::placeholder,textarea::placeholder{color:#6C82A8;}
+  label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px;letter-spacing:.1px;}
+
+  .btn{
+    padding:9px 16px;border-radius:8px;border:1px solid transparent;font-size:13.5px;font-weight:600;
+    cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn-primary{background:var(--teal-700);color:#fff;}
+  .btn-primary:hover{background:var(--teal-100);}
+  .btn-amber{background:var(--amber);color:var(--teal-900);}
+  .btn-amber:hover{background:var(--amber-dark);color:#fff;}
+  .btn-ghost{background:var(--teal-800);color:var(--ink);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--amber);}
+  .btn-danger{background:var(--teal-800);color:var(--bad);border-color:rgba(229,100,90,.4);}
+  .btn-danger:hover{background:rgba(229,100,90,.12);}
+  .btn-sm{padding:6px 10px;font-size:12.5px;border-radius:7px;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+  .grid{display:grid;gap:16px;}
+  .kpis{grid-template-columns:repeat(5,1fr);}
+  .kpi .label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+  .kpi .num{font-size:24px;font-weight:700;margin-top:6px;color:var(--ink);}
+  .kpi.hero{background:var(--teal-900);color:#fff;border:none;}
+  .kpi.hero .label{color:#9FC1BC;}
+  .kpi.hero .num{color:var(--amber);font-size:28px;}
+
+  .charts{grid-template-columns:1.3fr 1fr;margin-top:16px;}
+  .card h3{font-size:14px;margin:0 0 14px;font-weight:600;}
+  .chart-wrap{height:230px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);
+    padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap;
+  }
+  tbody td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle;white-space:nowrap;}
+  tbody tr:hover{background:rgba(255,255,255,.03);}
+  .tfoot td{font-weight:700;border-top:1px solid var(--line);border-bottom:none;background:rgba(255,255,255,.04);}
+  .badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.strong{background:rgba(63,190,139,.15);color:var(--good);}
+  .badge.active{background:rgba(232,162,60,.18);color:var(--amber);}
+  .badge.none{background:rgba(143,163,196,.15);color:var(--muted);}
+  .table-scroll{overflow-x:auto;}
+  .icon-btn{background:none;border:none;cursor:pointer;padding:5px;border-radius:6px;color:var(--muted);}
+  .icon-btn:hover{background:rgba(255,255,255,.08);color:var(--ink);}
+
+  .two-col{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;align-items:start;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-grid .full{grid-column:1 / -1;}
+  .field{display:flex;flex-direction:column;}
+
+  .receipt{background:var(--teal-800);border:1px solid var(--line);color:#EAF3F1;border-radius:var(--radius);padding:22px;}
+  .receipt .rname{font-family:'Space Grotesk';font-weight:700;font-size:16px;color:#fff;}
+  .receipt .rtag{font-size:11.5px;color:#9FC1BC;margin-bottom:16px;}
+  .receipt-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.15);}
+  .receipt-row.total{border-bottom:none;padding-top:12px;font-family:'Space Grotesk';font-size:19px;font-weight:700;color:var(--amber);}
+  .receipt .muted{color:#9FC1BC;}
+
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:end;}
+  .filters .field label{margin-bottom:5px;}
+
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;}
+  .empty b{display:block;color:var(--ink);font-size:14.5px;margin-bottom:4px;}
+
+  .toast{
+    position:fixed;bottom:22px;right:22px;background:var(--teal-900);color:#fff;padding:12px 18px;
+    border-radius:8px;font-size:13.5px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.18);
+    display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(8px);transition:all .25s ease;pointer-events:none;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateY(0);}
+  .toast .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);}
+
+  .danger-zone{border-color:rgba(229,100,90,.35);background:rgba(229,100,90,.06);margin-top:20px;}
+  .danger-zone h3{color:var(--bad);}
+
+  @media print{
+    #sidebar,#install-btn,.head-actions,.toast,.btn,.icon-btn,th:last-child,td:last-child{display:none !important;}
+    body{background:#fff;color:#000;}
+    #main{padding:0;}
+    .card{border:1px solid #ccc;background:#fff;color:#000;box-shadow:none;}
+  }
+
+  @media (max-width:860px){
+    #shell{flex-direction:column;}
+    #sidebar{width:100%;flex:none;height:auto;position:sticky;top:0;padding:14px 12px;z-index:20;}
+    .brand{border-bottom:none;padding-bottom:10px;margin-bottom:8px;}
+    nav{flex-direction:row;overflow-x:auto;gap:6px;}
+    .nav-btn{white-space:nowrap;}
+    .side-foot{display:none;}
+    #main{padding:18px 16px 40px;}
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .charts{grid-template-columns:1fr;}
+    .two-col{grid-template-columns:1fr;}
+    .form-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div id="shell">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><img src="logo.png" alt="Smart-Wash logo"></div>
+      <div>
+        <div class="brand-name" id="brand-name-el">SMART-WASH</div>
+        <div class="brand-tag" id="brand-tag-el">Smart Wash to Smart People</div>
+      </div>
+    </div>
+    <nav id="nav"></nav>
+    <button id="install-btn" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Install app</button>
+    <div id="sync-pill" style="padding:10px 8px;"></div>
+    <div class="side-foot">Works offline &amp; online<br>Live-synced with Supabase</div>
+  </aside>
+  <main id="main">
+    <div class="page-head">
+      <div>
+        <h1 id="page-title">Dashboard</h1>
+        <div class="sub" id="page-sub">Sales performance overview</div>
+      </div>
+      <div class="head-actions" id="page-actions"></div>
+    </div>
+    <div id="app-main"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"><span class="dot"></span><span id="toast-msg"></span></div>
+
+<script>
+/* ============================= ICONS ============================= */
+const ICONS = {
+  dashboard:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="12" width="8" height="9" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>',
+  sale:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 12h8"/></svg>',
+  history:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v5l3 2"/></svg>',
+  products:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  settings:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>',
+  edit:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  trash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+  check:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  report:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v3"/><path d="M11 10v8"/><path d="M15 13v5"/><path d="M19 6v12"/></svg>',
+  print:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>'
+};
+
+/* ============================= CHART.JS THEME ============================= */
+if(window.Chart){
+  Chart.defaults.color = '#B9C8E2';
+  Chart.defaults.borderColor = 'rgba(255,255,255,.08)';
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+}
+
+/* ============================= STATE ============================= */
+let STATE = {
+  products: [],
+  sales: [],
+  settings: {},
+  tab: 'dashboard',
+  historyFilters: { from:'', to:'', product:'all', q:'' },
+  editingProductId: null,
+  dashMonth: null,
+  reportMonth: null,
+  lastSale: null
+};
+let dailyChart = null, productChart = null, trendChart = null, histChart = null;
+let SAVED_ONCE = false;
+
+const DEFAULT_PRODUCTS = [
+  { id:'p1', name:'SABUNI NUSU LTR', volume:'500ml', price:1000 },
+  { id:'p2', name:'SABUNI LTR MOJA', volume:'1L', price:2000 }
+];
+const DEFAULT_SETTINGS = {
+  businessName:'SMART-WASH',
+  tagline:'Smart Wash to Smart People',
+  currency:'TZS',
+  paymentMethods:['CASH','MOBILE MONEY','BANK','CREDIT'],
+  defaultRegion:'DAR ES SALAAM',
+  defaultDistrict:'UBUNGO'
+};
+const DEFAULT_SALES = [
+  mkSale('2026-08-17','NDOGO','SABUNI NUSU LTR','500ml',6,1000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-17','KUBWA','SABUNI LTR MOJA','1L',5,2000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-18','KUBWA','SABUNI LTR MOJA','1L',1,2000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-19','KUBWA','SABUNI LTR MOJA','1L',2,2000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-19','NDOGO','SABUNI NUSU LTR','500ml',3,1000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-20','KUBWA','SABUNI LTR MOJA','1L',1,2000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-21','NDOGO','SABUNI NUSU LTR','500ml',1,1000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-25','NDOGO','SABUNI NUSU LTR','500ml',1,1000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-25','KUBWA','SABUNI LTR MOJA','1L',1,2000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-27','KUBWA','SABUNI LTR MOJA','1L',1,2000,0,'CASH','DAR ES SALAAM','UBUNGO',''),
+  mkSale('2026-08-27','NDOGO','SABUNI NUSU LTR','500ml',2,1000,0,'CASH','DAR ES SALAAM','UBUNGO','')
+];
+function mkSale(date,customer,product,volume,qty,price,discount,payment,region,district,notes){
+  const net = qty*price - discount;
+  return { id: genId(), date, customer, product, volume, qty, price, discount, net, payment, region, district, notes };
+}
+function genId(){ return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+/* ============================= LOCAL STORAGE (offline cache) ============================= */
+const LS = {
+  get(key, fallback){
+    try{ const v = localStorage.getItem(key); return v==null ? fallback : JSON.parse(v); }
+    catch(e){ return fallback; }
+  },
+  set(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch(e){ console.error('local save failed', key, e); return false; }
+  }
+};
+async function saveKey(key, value){ return LS.set(key, value); }
+
+/* ============================= SUPABASE SYNC ENGINE ============================= */
+// This app is offline-first: it always reads/writes a local cache immediately so it
+// keeps working with no internet connection. Whenever a Supabase project URL + anon
+// key are configured (Settings > Database connection), it also mirrors every change
+// to a shared Postgres database and listens for live updates from teammates.
+let SB = { client:null, ready:false, channel:null };
+function sbConfig(){ return { url: LS.get('nsw_sb_url',''), key: LS.get('nsw_sb_key','') }; }
+function sbInit(){
+  const { url, key } = sbConfig();
+  if(url && key && window.supabase){
+    try{
+      SB.client = window.supabase.createClient(url, key);
+      SB.ready = true;
+    }catch(e){ console.error('Supabase init failed', e); SB.ready = false; }
+  } else {
+    SB.ready = false;
+  }
+}
+function settingsToRow(s){
+  return {
+    id: 'default',
+    business_name: s.businessName || '',
+    tagline: s.tagline || '',
+    currency: s.currency || 'TZS',
+    payment_methods: s.paymentMethods || [],
+    default_region: s.defaultRegion || '',
+    default_district: s.defaultDistrict || ''
+  };
+}
+function rowToSettings(r){
+  if(!r) return Object.assign({}, DEFAULT_SETTINGS);
+  return {
+    businessName: r.business_name || 'SMART-WASH',
+    tagline: r.tagline || '',
+    currency: r.currency || 'TZS',
+    paymentMethods: r.payment_methods || [],
+    defaultRegion: r.default_region || '',
+    defaultDistrict: r.default_district || ''
+  };
+}
+function queueOp(table, op, payload){
+  const q = LS.get('nsw_queue', []);
+  q.push({ table, op, payload, ts: Date.now() });
+  LS.set('nsw_queue', q);
+  setSyncBadge();
+}
+async function dbUpsert(table, row){
+  if(SB.ready && navigator.onLine){
+    try{
+      const { error } = await SB.client.from(table).upsert(row);
+      if(error) throw error;
+      setSyncBadge();
+      return true;
+    }catch(e){ console.error('upsert failed, queued', table, e); queueOp(table,'upsert',row); return false; }
+  }
+  queueOp(table,'upsert',row);
+  return false;
+}
+async function dbDelete(table, id){
+  if(SB.ready && navigator.onLine){
+    try{
+      const { error } = await SB.client.from(table).delete().eq('id', id);
+      if(error) throw error;
+      setSyncBadge();
+      return true;
+    }catch(e){ console.error('delete failed, queued', table, e); queueOp(table,'delete',{id}); return false; }
+  }
+  queueOp(table,'delete',{id});
+  return false;
+}
+async function dbClearTable(table){
+  if(SB.ready && navigator.onLine){
+    try{
+      const { error } = await SB.client.from(table).delete().neq('id','__none__');
+      if(error) throw error;
+      setSyncBadge();
+      return true;
+    }catch(e){ console.error('clear failed, queued', table, e); queueOp(table,'clear',{}); return false; }
+  }
+  queueOp(table,'clear',{});
+  return false;
+}
+async function flushQueue(){
+  if(!SB.ready || !navigator.onLine) return;
+  let q = LS.get('nsw_queue', []);
+  if(!q.length) return;
+  const remaining = [];
+  for(const item of q){
+    try{
+      if(item.op==='delete'){
+        const { error } = await SB.client.from(item.table).delete().eq('id', item.payload.id);
+        if(error) throw error;
+      } else if(item.op==='clear'){
+        const { error } = await SB.client.from(item.table).delete().neq('id','__none__');
+        if(error) throw error;
+      } else {
+        const { error } = await SB.client.from(item.table).upsert(item.payload);
+        if(error) throw error;
+      }
+    }catch(e){ console.error('flush item failed, keeping queued', item, e); remaining.push(item); }
+  }
+  LS.set('nsw_queue', remaining);
+  setSyncBadge();
+  if(remaining.length===0 && q.length>0) toast('Synced with database');
+}
+async function pullAll(){
+  if(!SB.ready || !navigator.onLine) return false;
+  try{
+    const [pr, sr, tr] = await Promise.all([
+      SB.client.from('products').select('*').order('name'),
+      SB.client.from('sales').select('*').order('date',{ascending:false}),
+      SB.client.from('settings').select('*').eq('id','default').maybeSingle()
+    ]);
+    if(pr.error) throw pr.error;
+    if(sr.error) throw sr.error;
+    if(tr.error) throw tr.error;
+    STATE.products = pr.data || [];
+    STATE.sales = sr.data || [];
+    STATE.settings = rowToSettings(tr.data);
+    LS.set('nsw_products', STATE.products);
+    LS.set('nsw_sales', STATE.sales);
+    LS.set('nsw_settings', STATE.settings);
+    LS.set('nsw_last_sync', Date.now());
+    return true;
+  }catch(e){ console.error('pull failed', e); return false; }
+}
+function sbSubscribe(){
+  if(!SB.ready) return;
+  if(SB.channel){ try{ SB.client.removeChannel(SB.channel); }catch(e){} }
+  SB.channel = SB.client.channel('nsw-live-changes')
+    .on('postgres_changes', { event:'*', schema:'public', table:'sales' }, onRemoteChange)
+    .on('postgres_changes', { event:'*', schema:'public', table:'products' }, onRemoteChange)
+    .on('postgres_changes', { event:'*', schema:'public', table:'settings' }, onRemoteChange)
+    .subscribe();
+}
+let _remoteRefreshTimer = null;
+function onRemoteChange(){
+  // Coalesce bursts of changes into a single refresh.
+  clearTimeout(_remoteRefreshTimer);
+  _remoteRefreshTimer = setTimeout(async () => {
+    const ok = await pullAll();
+    if(ok){ applyBranding(); buildNav(); renderTab(); setSyncBadge(); }
+  }, 400);
+}
+function setSyncBadge(){
+  const el = document.getElementById('sync-pill');
+  if(!el) return;
+  const queued = LS.get('nsw_queue', []).length;
+  let text, cls;
+  if(!SB.ready){ text = 'Local only · not connected'; cls='none'; }
+  else if(!navigator.onLine){ text = `Offline${queued? ' · '+queued+' pending':''}`; cls='active'; }
+  else if(queued>0){ text = `Syncing… ${queued} pending`; cls='active'; }
+  else { text = 'Online · live synced'; cls='strong'; }
+  el.innerHTML = `<span class="badge ${cls}" style="display:inline-block;">${text}</span>`;
+}
+
+/* ============================= INIT ============================= */
+async function init(){
+  // 1) Load instantly from local cache (or bundled demo data) so the app works with
+  //    zero network at all.
+  STATE.products = LS.get('nsw_products', null) || DEFAULT_PRODUCTS.slice();
+  STATE.sales = LS.get('nsw_sales', null) || DEFAULT_SALES.slice();
+  STATE.settings = LS.get('nsw_settings', null) || Object.assign({}, DEFAULT_SETTINGS);
+  LS.set('nsw_products', STATE.products);
+  LS.set('nsw_sales', STATE.sales);
+  LS.set('nsw_settings', STATE.settings);
+  applyBranding();
+  buildNav();
+  const months = getMonthsWithSales();
+  STATE.dashMonth = months.length ? months[months.length-1] : monthKey(new Date());
+  STATE.reportMonth = STATE.dashMonth;
+  renderTab();
+  setSyncBadge();
+
+  // 2) In the background, try to connect to the shared Supabase database, pull the
+  //    latest data, flush anything queued from offline edits, and go live.
+  sbInit();
+  if(SB.ready){
+    const ok = await pullAll();
+    if(ok){
+      await flushQueue();
+      applyBranding(); buildNav();
+      const months2 = getMonthsWithSales();
+      if(!months2.includes(STATE.dashMonth)) STATE.dashMonth = months2[months2.length-1];
+      if(!months2.includes(STATE.reportMonth)) STATE.reportMonth = STATE.dashMonth;
+      renderTab();
+      sbSubscribe();
+      toast('Connected — live database sync active');
+    }
+  }
+  setSyncBadge();
+
+  window.addEventListener('online', async () => {
+    setSyncBadge();
+    if(SB.ready){
+      await flushQueue();
+      const ok = await pullAll();
+      if(ok){ applyBranding(); buildNav(); renderTab(); sbSubscribe(); }
+    }
+  });
+  window.addEventListener('offline', setSyncBadge);
+}
+
+/* ============================= HELPERS ============================= */
+function fmtMoney(n){
+  n = Math.round(n||0);
+  return (STATE.settings.currency||'TZS') + ' ' + n.toLocaleString('en-US');
+}
+function fmtDate(iso){
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('en-GB',{ day:'2-digit', month:'short', year:'numeric' });
+}
+function dayName(iso){
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return '';
+  return d.toLocaleDateString('en-US',{ weekday:'short' });
+}
+function monthKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function monthLabel(mk){
+  const [y,m] = mk.split('-');
+  return new Date(y, m-1, 1).toLocaleDateString('en-US',{month:'long', year:'numeric'});
+}
+function daysInMonth(mk){
+  const [y,m] = mk.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+function getMonthsWithSales(){
+  const set = new Set(STATE.sales.map(s => s.date.slice(0,7)));
+  set.add(monthKey(new Date()));
+  return Array.from(set).sort();
+}
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function applyBranding(){
+  document.getElementById('brand-name-el').textContent = STATE.settings.businessName || 'SMART-WASH';
+  document.getElementById('brand-tag-el').textContent = STATE.settings.tagline || '';
+  document.title = (STATE.settings.businessName||'SMART-WASH') + ' — POS';
+}
+
+/* ============================= NAV ============================= */
+const TABS = [
+  {id:'dashboard', label:'Dashboard', icon:'dashboard', sub:'Sales performance overview'},
+  {id:'monthlyreport', label:'Monthly Report', icon:'report', sub:'Monthly trends, sales performance and quantity breakdown'},
+  {id:'newsale', label:'New Sale', icon:'sale', sub:'Record a transaction'},
+  {id:'history', label:'Sales History', icon:'history', sub:'Browse, filter and edit past sales'},
+  {id:'products', label:'Products', icon:'products', sub:'Manage products and prices'},
+  {id:'settings', label:'Settings', icon:'settings', sub:'Business details and preferences'}
+];
+function buildNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = TABS.map(t => `<button class="nav-btn${STATE.tab===t.id?' active':''}" data-tab="${t.id}">${ICONS[t.icon]}<span>${t.label}</span></button>`).join('');
+  nav.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => { STATE.tab = b.dataset.tab; buildNav(); renderTab(); }));
+}
+function renderTab(){
+  const t = TABS.find(x=>x.id===STATE.tab);
+  document.getElementById('page-title').textContent = t.label;
+  document.getElementById('page-sub').textContent = t.sub;
+  const actions = document.getElementById('page-actions');
+  actions.innerHTML = '';
+  if(STATE.tab==='dashboard') renderDashboard();
+  else if(STATE.tab==='monthlyreport') renderMonthlyReport();
+  else if(STATE.tab==='newsale') renderNewSale();
+  else if(STATE.tab==='history') renderHistory();
+  else if(STATE.tab==='products') renderProducts();
+  else if(STATE.tab==='settings') renderSettings();
+}
+
+/* ============================= DASHBOARD ============================= */
+function computeMonthStats(mk){
+  const rows = STATE.sales.filter(s => s.date.slice(0,7)===mk);
+  const totalSales = rows.reduce((a,s)=>a+s.net,0);
+  const totalQty = rows.reduce((a,s)=>a+Number(s.qty),0);
+  const activeDaysSet = new Set(rows.filter(s=>s.net>0).map(s=>s.date));
+  const activeDays = activeDaysSet.size;
+  const avgPerDay = activeDays ? totalSales/activeDays : 0;
+  return { rows, totalSales, totalQty, activeDays, avgPerDay, transactions: rows.length };
+}
+function renderDashboard(){
+  const months = getMonthsWithSales();
+  const stats = computeMonthStats(STATE.dashMonth);
+  const wrap = document.getElementById('app-main');
+
+  document.getElementById('page-actions').innerHTML = `
+    <div class="field" style="min-width:180px">
+      <label>Month</label>
+      <select id="dash-month">${months.map(m=>`<option value="${m}" ${m===STATE.dashMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
+    </div>`;
+  document.getElementById('dash-month').addEventListener('change', e => { STATE.dashMonth = e.target.value; renderDashboard(); });
+
+  wrap.innerHTML = `
+    <div class="grid kpis">
+      <div class="card kpi hero"><div class="label">Total sales — ${monthLabel(STATE.dashMonth)}</div><div class="num">${fmtMoney(stats.totalSales)}</div></div>
+      <div class="card kpi"><div class="label">Quantity sold</div><div class="num">${stats.totalQty}</div></div>
+      <div class="card kpi"><div class="label">Transactions</div><div class="num">${stats.transactions}</div></div>
+      <div class="card kpi"><div class="label">Active sale days</div><div class="num">${stats.activeDays}</div></div>
+      <div class="card kpi"><div class="label">Avg / active day</div><div class="num">${fmtMoney(stats.avgPerDay)}</div></div>
+    </div>
+
+    <div class="grid charts">
+      <div class="card">
+        <h3>Daily sales revenue — ${monthLabel(STATE.dashMonth)}</h3>
+        <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Quantity by product (all time)</h3>
+        <div class="chart-wrap"><canvas id="productChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>Recent transactions</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Date</th><th>Customer</th><th>Product</th><th>Qty</th><th>Net sale</th><th>Payment</th></tr></thead>
+          <tbody>${recentRows()}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  drawDailyChart(stats);
+  drawProductChart();
+}
+function recentRows(){
+  const rows = STATE.sales.slice().sort((a,b)=> (a.date+a.id) < (b.date+b.id) ? 1 : -1).slice(0,8);
+  if(!rows.length) return `<tr><td colspan="6" class="empty">No sales recorded yet.</td></tr>`;
+  return rows.map(s=>`<tr><td>${fmtDate(s.date)}</td><td>${esc(s.customer)}</td><td>${esc(s.product)}</td><td>${s.qty}</td><td>${fmtMoney(s.net)}</td><td>${esc(s.payment||'—')}</td></tr>`).join('');
+}
+function drawDailyChart(stats){
+  const ctx = document.getElementById('dailyChart');
+  if(!ctx) return;
+  const nDays = daysInMonth(STATE.dashMonth);
+  const labels = Array.from({length:nDays}, (_,i)=> String(i+1));
+  const byDay = {};
+  stats.rows.forEach(s => { const d = Number(s.date.slice(8,10)); byDay[d] = (byDay[d]||0) + s.net; });
+  const data = labels.map((_,i)=> byDay[i+1] || 0);
+  if(dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{ data, borderColor:'#E8A23C', backgroundColor:'rgba(232,162,60,.14)', fill:true, tension:.3, pointRadius:0, borderWidth:2 }]},
+    options:{
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: c => fmtMoney(c.parsed.y) } } },
+      scales:{ x:{ title:{display:true,text:'Day of month'}, grid:{display:false} }, y:{ ticks:{ callback:v=>v>=1000? (v/1000)+'k':v }, grid:{color:'rgba(255,255,255,.08)'} } },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+}
+function drawProductChart(){
+  const ctx = document.getElementById('productChart');
+  if(!ctx) return;
+  const byProduct = {};
+  STATE.sales.forEach(s => { byProduct[s.product] = (byProduct[s.product]||0) + Number(s.qty); });
+  const labels = Object.keys(byProduct);
+  const data = labels.map(l=>byProduct[l]);
+  if(productChart) productChart.destroy();
+  productChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor:'#E8A23C', borderRadius:4, maxBarThickness:42 }]},
+    options:{
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ grid:{display:false} }, y:{ grid:{color:'rgba(255,255,255,.08)'}, ticks:{precision:0} } },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+}
+
+/* ============================= MONTHLY REPORT ============================= */
+function renderMonthlyReport(){
+  const months = getMonthsWithSales();
+  const stats = computeMonthStats(STATE.reportMonth);
+  const wrap = document.getElementById('app-main');
+
+  document.getElementById('page-actions').innerHTML = `
+    <div class="field" style="min-width:180px">
+      <label>Month</label>
+      <select id="report-month">${months.map(m=>`<option value="${m}" ${m===STATE.reportMonth?'selected':''}>${monthLabel(m)}</option>`).join('')}</select>
+    </div>
+    <button class="btn btn-ghost" id="report-export">Export CSV</button>
+    <button class="btn btn-amber" id="report-print">${ICONS.print} Print report</button>
+  `;
+  document.getElementById('report-month').addEventListener('change', e => { STATE.reportMonth = e.target.value; renderMonthlyReport(); });
+  document.getElementById('report-export').addEventListener('click', () => exportCSV(stats.rows));
+  document.getElementById('report-print').addEventListener('click', () => window.print());
+
+  wrap.innerHTML = `
+    <div class="grid kpis">
+      <div class="card kpi hero"><div class="label">Total sales — ${monthLabel(STATE.reportMonth)}</div><div class="num">${fmtMoney(stats.totalSales)}</div></div>
+      <div class="card kpi"><div class="label">Quantity sold</div><div class="num">${stats.totalQty}</div></div>
+      <div class="card kpi"><div class="label">Transactions</div><div class="num">${stats.transactions}</div></div>
+      <div class="card kpi"><div class="label">Active sale days</div><div class="num">${stats.activeDays}</div></div>
+      <div class="card kpi"><div class="label">Avg / active day</div><div class="num">${fmtMoney(stats.avgPerDay)}</div></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>Sales performance trend — monthly totals</h3>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <div class="grid charts" style="margin-top:16px;grid-template-columns:1fr;">
+      <div class="card">
+        <h3>Sales &amp; quantity by product — ${monthLabel(STATE.reportMonth)}</h3>
+        <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>Daily breakdown — ${monthLabel(STATE.reportMonth)}</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Date</th><th>Day</th><th>Transactions</th><th>Qty sold</th><th>Net sales</th></tr></thead>
+          <tbody>${dailyBreakdownRows(stats.rows)}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  drawTrendChart(months);
+  drawHistChart(stats.rows);
+}
+function dailyBreakdownRows(rows){
+  const byDay = {};
+  rows.forEach(s => {
+    const d = s.date;
+    if(!byDay[d]) byDay[d] = { qty:0, net:0, count:0 };
+    byDay[d].qty += Number(s.qty);
+    byDay[d].net += s.net;
+    byDay[d].count += 1;
+  });
+  const days = Object.keys(byDay).sort((a,b)=> a<b?1:-1);
+  if(!days.length) return `<tr><td colspan="5" class="empty">No sales recorded for this month.</td></tr>`;
+  return days.map(d => `<tr><td>${fmtDate(d)}</td><td>${dayName(d)}</td><td>${byDay[d].count}</td><td>${byDay[d].qty}</td><td>${fmtMoney(byDay[d].net)}</td></tr>`).join('');
+}
+function drawTrendChart(months){
+  const ctx = document.getElementById('trendChart');
+  if(!ctx) return;
+  const recentMonths = months.slice(-12);
+  const labels = recentMonths.map(m => monthLabel(m).replace(' ' + m.slice(0,4), '').slice(0,3) + ' \'' + m.slice(2,4));
+  const salesData = recentMonths.map(m => computeMonthStats(m).totalSales);
+  const qtyData = recentMonths.map(m => computeMonthStats(m).totalQty);
+  if(trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Net sales', data:salesData, borderColor:'#E8A23C', backgroundColor:'rgba(232,162,60,.14)', fill:true, tension:.3, pointRadius:3, borderWidth:2, yAxisID:'y' },
+      { label:'Quantity', data:qtyData, borderColor:'#4FA3E8', backgroundColor:'rgba(79,163,232,.10)', fill:false, tension:.3, pointRadius:3, borderWidth:2, yAxisID:'y1' }
+    ]},
+    options:{
+      plugins:{ legend:{display:true, labels:{color:'#B9C8E2'}}, tooltip:{ callbacks:{ label: c => c.dataset.label==='Net sales'? fmtMoney(c.parsed.y): c.parsed.y+' units' } } },
+      scales:{
+        x:{ grid:{display:false} },
+        y:{ position:'left', ticks:{ callback:v=>v>=1000? (v/1000)+'k':v }, grid:{color:'rgba(255,255,255,.08)'}, title:{display:true,text:'Net sales'} },
+        y1:{ position:'right', ticks:{precision:0}, grid:{display:false}, title:{display:true,text:'Quantity'} }
+      },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+}
+function drawHistChart(rows){
+  const ctx = document.getElementById('histChart');
+  if(!ctx) return;
+  const byProduct = {};
+  rows.forEach(s => {
+    if(!byProduct[s.product]) byProduct[s.product] = { qty:0, net:0 };
+    byProduct[s.product].qty += Number(s.qty);
+    byProduct[s.product].net += s.net;
+  });
+  const labels = Object.keys(byProduct);
+  const netData = labels.map(l=>byProduct[l].net);
+  const qtyData = labels.map(l=>byProduct[l].qty);
+  if(histChart) histChart.destroy();
+  histChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'Net sales', data:netData, backgroundColor:'#E8A23C', borderRadius:4, maxBarThickness:46, yAxisID:'y' },
+      { label:'Quantity', data:qtyData, backgroundColor:'#4FA3E8', borderRadius:4, maxBarThickness:46, yAxisID:'y1' }
+    ]},
+    options:{
+      plugins:{ legend:{display:true, labels:{color:'#B9C8E2'}}, tooltip:{ callbacks:{ label: c => c.dataset.label==='Net sales'? fmtMoney(c.parsed.y): c.parsed.y+' units' } } },
+      scales:{
+        x:{ grid:{display:false} },
+        y:{ position:'left', ticks:{ callback:v=>v>=1000? (v/1000)+'k':v }, grid:{color:'rgba(255,255,255,.08)'}, title:{display:true,text:'Net sales'} },
+        y1:{ position:'right', ticks:{precision:0}, grid:{display:false}, title:{display:true,text:'Quantity'} }
+      },
+      responsive:true, maintainAspectRatio:false
+    }
+  });
+}
+
+/* ============================= NEW SALE ============================= */
+function renderNewSale(){
+  const wrap = document.getElementById('app-main');
+  const p0 = STATE.products[0] || {volume:'',price:0};
+  wrap.innerHTML = `
+    <div class="two-col">
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label>Date</label><input type="date" id="ns-date" value="${todayISO()}"></div>
+          <div class="field"><label>Customer / buyer</label><input list="customer-list" id="ns-customer" placeholder="e.g. NDOGO"><datalist id="customer-list">${uniqueCustomers().map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+          <div class="field"><label>Product</label>
+            <select id="ns-product">${STATE.products.map(p=>`<option value="${esc(p.name)}" data-volume="${esc(p.volume)}" data-price="${p.price}">${esc(p.name)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Volume</label><input id="ns-volume" value="${esc(p0.volume)}"></div>
+          <div class="field"><label>Quantity</label><input type="number" id="ns-qty" min="1" value="1"></div>
+          <div class="field"><label>Unit price (${STATE.settings.currency})</label><input type="number" id="ns-price" min="0" value="${p0.price||0}"></div>
+          <div class="field"><label>Discount (${STATE.settings.currency})</label><input type="number" id="ns-discount" min="0" value="0"></div>
+          <div class="field"><label>Payment method</label>
+            <select id="ns-payment">${(STATE.settings.paymentMethods||[]).map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Region</label><input id="ns-region" value="${esc(STATE.settings.defaultRegion||'')}"></div>
+          <div class="field"><label>District</label><input id="ns-district" value="${esc(STATE.settings.defaultDistrict||'')}"></div>
+          <div class="field full"><label>Notes (optional)</label><input id="ns-notes" placeholder="Add a note about this sale"></div>
+        </div>
+        <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-amber" id="ns-submit">${ICONS.check} Record sale</button>
+          <button class="btn btn-ghost" id="ns-reset">${ICONS.x} Clear form</button>
+          ${STATE.lastSale? `<button class="btn btn-primary" id="ns-print">${ICONS.print} Print receipt / invoice</button>` : ''}
+        </div>
+        ${STATE.lastSale? `<div style="margin-top:10px;font-size:12.5px;color:var(--muted);">Last recorded sale: <b style="color:var(--ink);">${esc(STATE.lastSale.customer)}</b> — ${fmtMoney(STATE.lastSale.net)}</div>` : ''}
+      </div>
+
+      <div class="receipt">
+        <div class="rname">${esc(STATE.settings.businessName||'SMART-WASH')}</div>
+        <div class="rtag">${esc(STATE.settings.tagline||'')}</div>
+        <div class="receipt-row"><span class="muted">Product</span><span id="rc-product">${esc(p0.name||'—')}</span></div>
+        <div class="receipt-row"><span class="muted">Volume</span><span id="rc-volume">${esc(p0.volume||'—')}</span></div>
+        <div class="receipt-row"><span class="muted">Quantity</span><span id="rc-qty">1</span></div>
+        <div class="receipt-row"><span class="muted">Unit price</span><span id="rc-price">${fmtMoney(p0.price||0)}</span></div>
+        <div class="receipt-row"><span class="muted">Discount</span><span id="rc-discount">${fmtMoney(0)}</span></div>
+        <div class="receipt-row total"><span>Net sale</span><span id="rc-net">${fmtMoney(p0.price||0)}</span></div>
+      </div>
+    </div>
+  `;
+
+  const productSel = document.getElementById('ns-product');
+  const volume = document.getElementById('ns-volume');
+  const price = document.getElementById('ns-price');
+  const qty = document.getElementById('ns-qty');
+  const discount = document.getElementById('ns-discount');
+
+  function updateReceipt(){
+    const opt = productSel.options[productSel.selectedIndex];
+    document.getElementById('rc-product').textContent = productSel.value || '—';
+    document.getElementById('rc-volume').textContent = volume.value || '—';
+    document.getElementById('rc-qty').textContent = qty.value || 0;
+    document.getElementById('rc-price').textContent = fmtMoney(Number(price.value)||0);
+    document.getElementById('rc-discount').textContent = fmtMoney(Number(discount.value)||0);
+    const net = (Number(qty.value)||0) * (Number(price.value)||0) - (Number(discount.value)||0);
+    document.getElementById('rc-net').textContent = fmtMoney(net);
+  }
+  productSel.addEventListener('change', () => {
+    const opt = productSel.options[productSel.selectedIndex];
+    volume.value = opt.dataset.volume || '';
+    price.value = opt.dataset.price || 0;
+    updateReceipt();
+  });
+  [volume, price, qty, discount].forEach(el => el.addEventListener('input', updateReceipt));
+
+  document.getElementById('ns-reset').addEventListener('click', renderNewSale);
+  document.getElementById('ns-submit').addEventListener('click', async () => {
+    const date = document.getElementById('ns-date').value || todayISO();
+    const customer = document.getElementById('ns-customer').value.trim();
+    const product = productSel.value;
+    const vol = volume.value.trim();
+    const q = Number(qty.value)||0;
+    const pr = Number(price.value)||0;
+    const disc = Number(discount.value)||0;
+    if(!customer){ toast('Add a customer / buyer name'); return; }
+    if(q<=0){ toast('Quantity must be at least 1'); return; }
+    const payment = document.getElementById('ns-payment').value;
+    const region = document.getElementById('ns-region').value.trim();
+    const district = document.getElementById('ns-district').value.trim();
+    const notes = document.getElementById('ns-notes').value.trim();
+    const sale = mkSale(date, customer, product, vol, q, pr, disc, payment, region, district, notes);
+    STATE.sales.push(sale);
+    STATE.lastSale = sale;
+    LS.set('nsw_sales', STATE.sales);
+    toast('Sale recorded — ' + fmtMoney(sale.net));
+    renderNewSale();
+    dbUpsert('sales', sale);
+  });
+  if(STATE.lastSale){
+    const printBtn = document.getElementById('ns-print');
+    if(printBtn) printBtn.addEventListener('click', () => printReceipt(STATE.lastSale));
+  }
+}
+/* ============================= PRINT RECEIPT / INVOICE ============================= */
+function printReceipt(sale){
+  const s = STATE.settings;
+  const invoiceNo = sale.id.replace(/^id_/,'').toUpperCase();
+  const win = window.open('', '_blank', 'width=420,height=640');
+  if(!win){ toast('Please allow pop-ups to print the receipt'); return; }
+  win.document.write(`
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice ${esc(invoiceNo)}</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:'Courier New',monospace;color:#111;padding:24px;max-width:380px;margin:0 auto;}
+  h1{font-size:18px;margin:0 0 2px;text-align:center;}
+  .tag{text-align:center;font-size:11px;color:#555;margin-bottom:14px;}
+  .meta{font-size:12px;margin-bottom:14px;border-bottom:1px dashed #999;padding-bottom:10px;}
+  .meta div{display:flex;justify-content:space-between;padding:2px 0;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px;}
+  th,td{text-align:left;padding:5px 0;}
+  th{border-bottom:1px solid #333;font-size:11px;text-transform:uppercase;}
+  td.num,th.num{text-align:right;}
+  .totals div{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
+  .totals .grand{font-weight:bold;font-size:16px;border-top:1px dashed #999;margin-top:6px;padding-top:8px;}
+  .foot{text-align:center;font-size:11px;color:#555;margin-top:18px;border-top:1px dashed #999;padding-top:10px;}
+  @media print{ body{padding:6px;} }
+</style></head>
+<body>
+  <h1>${esc(s.businessName||'SMART-WASH')}</h1>
+  <div class="tag">${esc(s.tagline||'')}</div>
+  <div class="meta">
+    <div><span>Invoice #</span><span>${esc(invoiceNo)}</span></div>
+    <div><span>Date</span><span>${esc(fmtDate(sale.date))}</span></div>
+    <div><span>Customer</span><span>${esc(sale.customer)}</span></div>
+    <div><span>Payment</span><span>${esc(sale.payment||'—')}</span></div>
+    ${sale.region? `<div><span>Region</span><span>${esc(sale.region)}${sale.district? ', '+esc(sale.district):''}</span></div>` : ''}
+  </div>
+  <table>
+    <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr><td>${esc(sale.product)}${sale.volume? ' ('+esc(sale.volume)+')':''}</td><td class="num">${sale.qty}</td><td class="num">${fmtMoney(sale.price)}</td><td class="num">${fmtMoney(sale.qty*sale.price)}</td></tr>
+    </tbody>
+  </table>
+  <div class="totals">
+    <div><span>Subtotal</span><span>${fmtMoney(sale.qty*sale.price)}</span></div>
+    <div><span>Discount</span><span>-${fmtMoney(sale.discount)}</span></div>
+    <div class="grand"><span>TOTAL</span><span>${fmtMoney(sale.net)}</span></div>
+  </div>
+  ${sale.notes? `<div style="font-size:11.5px;color:#555;margin-bottom:10px;">Note: ${esc(sale.notes)}</div>` : ''}
+  <div class="foot">Thank you for your business!<br>${esc(s.businessName||'SMART-WASH')} — ${esc(s.tagline||'')}</div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 300);
+}
+function uniqueCustomers(){
+  return Array.from(new Set(STATE.sales.map(s=>s.customer).filter(Boolean)));
+}
+
+/* ============================= SALES HISTORY ============================= */
+function filteredSales(){
+  const f = STATE.historyFilters;
+  return STATE.sales.filter(s => {
+    if(f.from && s.date < f.from) return false;
+    if(f.to && s.date > f.to) return false;
+    if(f.product!=='all' && s.product!==f.product) return false;
+    if(f.q){
+      const q = f.q.toLowerCase();
+      if(!(s.customer.toLowerCase().includes(q) || s.product.toLowerCase().includes(q) || (s.notes||'').toLowerCase().includes(q))) return false;
+    }
+    return true;
+  }).sort((a,b)=> (a.date+a.id) < (b.date+b.id) ? 1 : -1);
+}
+function renderHistory(){
+  document.getElementById('page-actions').innerHTML = `<button class="btn btn-ghost" id="hist-export">Export CSV</button>`;
+  const wrap = document.getElementById('app-main');
+  const rows = filteredSales();
+  const totalNet = rows.reduce((a,s)=>a+s.net,0);
+  const totalQty = rows.reduce((a,s)=>a+Number(s.qty),0);
+  const productOptions = Array.from(new Set(STATE.products.map(p=>p.name).concat(STATE.sales.map(s=>s.product))));
+
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="filters">
+        <div class="field"><label>From</label><input type="date" id="f-from" value="${STATE.historyFilters.from}"></div>
+        <div class="field"><label>To</label><input type="date" id="f-to" value="${STATE.historyFilters.to}"></div>
+        <div class="field"><label>Product</label>
+          <select id="f-product"><option value="all">All products</option>${productOptions.map(p=>`<option value="${esc(p)}" ${STATE.historyFilters.product===p?'selected':''}>${esc(p)}</option>`).join('')}</select>
+        </div>
+        <div class="field" style="flex:1;min-width:180px"><label>Search</label><input id="f-q" placeholder="Customer, product or note" value="${esc(STATE.historyFilters.q)}"></div>
+        <button class="btn btn-ghost btn-sm" id="f-clear">Clear filters</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Date</th><th>Day</th><th>Customer</th><th>Product</th><th>Volume</th><th>Qty</th>
+            <th>Unit price</th><th>Discount</th><th>Net sale</th><th>Payment</th><th>Region</th><th>District</th><th>Notes</th><th></th>
+          </tr></thead>
+          <tbody id="hist-body">${historyRows(rows)}</tbody>
+          <tfoot><tr class="tfoot"><td colspan="5">Totals (${rows.length} sales)</td><td>${totalQty}</td><td></td><td></td><td>${fmtMoney(totalNet)}</td><td colspan="5"></td></tr></tfoot>
+        </table>
+      </div>
+      ${rows.length? '' : '<div class="empty"><b>No matching sales</b>Try widening your filters or record a new sale.</div>'}
+    </div>
+  `;
+  ['f-from','f-to','f-q'].forEach(id => document.getElementById(id).addEventListener('input', e => {
+    const key = id.replace('f-','');
+    STATE.historyFilters[key] = e.target.value;
+    renderHistory();
+  }));
+  document.getElementById('f-product').addEventListener('change', e => { STATE.historyFilters.product = e.target.value; renderHistory(); });
+  document.getElementById('f-clear').addEventListener('click', () => { STATE.historyFilters = {from:'',to:'',product:'all',q:''}; renderHistory(); });
+  document.getElementById('hist-export').addEventListener('click', () => exportCSV(rows));
+
+  wrap.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if(!confirm('Delete this sale record?')) return;
+    const delId = b.dataset.del;
+    STATE.sales = STATE.sales.filter(s => s.id !== delId);
+    LS.set('nsw_sales', STATE.sales);
+    toast('Sale deleted');
+    renderHistory();
+    dbDelete('sales', delId);
+  }));
+}
+function historyRows(rows){
+  if(!rows.length) return '';
+  return rows.map(s => `<tr>
+    <td>${fmtDate(s.date)}</td><td>${dayName(s.date)}</td><td>${esc(s.customer)}</td><td>${esc(s.product)}</td>
+    <td>${esc(s.volume)}</td><td>${s.qty}</td><td>${fmtMoney(s.price)}</td><td>${fmtMoney(s.discount)}</td>
+    <td><b>${fmtMoney(s.net)}</b></td><td>${esc(s.payment||'—')}</td><td>${esc(s.region||'—')}</td><td>${esc(s.district||'—')}</td>
+    <td>${esc(s.notes||'—')}</td>
+    <td><button class="icon-btn" data-del="${s.id}" title="Delete">${ICONS.trash}</button></td>
+  </tr>`).join('');
+}
+function exportCSV(rows){
+  const headers = ['Date','Day','Customer','Product','Volume','Qty','Unit Price','Discount','Net Sale','Payment','Region','District','Notes'];
+  const lines = [headers.join(',')];
+  rows.forEach(s => {
+    const vals = [s.date, dayName(s.date), s.customer, s.product, s.volume, s.qty, s.price, s.discount, s.net, s.payment, s.region, s.district, s.notes||''];
+    lines.push(vals.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'n-smart-wash-sales.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================= PRODUCTS ============================= */
+function renderProducts(){
+  const wrap = document.getElementById('app-main');
+  wrap.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <h3>Add a product</h3>
+      <div class="form-grid">
+        <div class="field"><label>Name</label><input id="np-name" placeholder="e.g. SABUNI LTR MOJA"></div>
+        <div class="field"><label>Volume</label><input id="np-volume" placeholder="e.g. 1L"></div>
+        <div class="field"><label>Default price (${STATE.settings.currency})</label><input type="number" id="np-price" min="0" value="0"></div>
+      </div>
+      <button class="btn btn-amber" id="np-add" style="margin-top:14px;">${ICONS.check} Add product</button>
+    </div>
+    <div class="card">
+      <h3>Product catalog</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Name</th><th>Volume</th><th>Default price</th><th></th></tr></thead>
+          <tbody id="prod-body">${productRows()}</tbody>
+        </table>
+      </div>
+      ${STATE.products.length? '' : '<div class="empty"><b>No products yet</b>Add your first product above.</div>'}
+    </div>
+  `;
+  document.getElementById('np-add').addEventListener('click', async () => {
+    const name = document.getElementById('np-name').value.trim();
+    const volume = document.getElementById('np-volume').value.trim();
+    const price = Number(document.getElementById('np-price').value)||0;
+    if(!name){ toast('Enter a product name'); return; }
+    const prod = { id: genId(), name, volume, price };
+    STATE.products.push(prod);
+    LS.set('nsw_products', STATE.products);
+    toast('Product added');
+    renderProducts();
+    dbUpsert('products', prod);
+  });
+  bindProductRowEvents();
+}
+function productRows(){
+  return STATE.products.map(p => {
+    if(STATE.editingProductId === p.id){
+      return `<tr>
+        <td><input class="pe-name" value="${esc(p.name)}" style="width:100%"></td>
+        <td><input class="pe-volume" value="${esc(p.volume)}" style="width:90px"></td>
+        <td><input class="pe-price" type="number" value="${p.price}" style="width:100px"></td>
+        <td style="display:flex;gap:4px;">
+          <button class="icon-btn" data-save="${p.id}" title="Save">${ICONS.check}</button>
+          <button class="icon-btn" data-cancel="${p.id}" title="Cancel">${ICONS.x}</button>
+        </td>
+      </tr>`;
+    }
+    return `<tr>
+      <td>${esc(p.name)}</td><td>${esc(p.volume)}</td><td>${fmtMoney(p.price)}</td>
+      <td style="display:flex;gap:4px;">
+        <button class="icon-btn" data-edit="${p.id}" title="Edit">${ICONS.edit}</button>
+        <button class="icon-btn" data-del="${p.id}" title="Delete">${ICONS.trash}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function bindProductRowEvents(){
+  const body = document.getElementById('prod-body');
+  body.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => { STATE.editingProductId = b.dataset.edit; renderProducts(); }));
+  body.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => { STATE.editingProductId = null; renderProducts(); }));
+  body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if(!confirm('Delete this product from the catalog?')) return;
+    const delId = b.dataset.del;
+    STATE.products = STATE.products.filter(p => p.id !== delId);
+    LS.set('nsw_products', STATE.products);
+    toast('Product deleted');
+    renderProducts();
+    dbDelete('products', delId);
+  }));
+  body.querySelectorAll('[data-save]').forEach(b => b.addEventListener('click', async () => {
+    const row = b.closest('tr');
+    const id = b.dataset.save;
+    const name = row.querySelector('.pe-name').value.trim();
+    const volume = row.querySelector('.pe-volume').value.trim();
+    const price = Number(row.querySelector('.pe-price').value)||0;
+    if(!name){ toast('Product name cannot be empty'); return; }
+    let updated;
+    STATE.products = STATE.products.map(p => { if(p.id===id){ updated = {...p, name, volume, price}; return updated; } return p; });
+    STATE.editingProductId = null;
+    LS.set('nsw_products', STATE.products);
+    toast('Product updated');
+    renderProducts();
+    if(updated) dbUpsert('products', updated);
+  }));
+}
+
+/* ============================= SETTINGS ============================= */
+function renderSettings(){
+  const s = STATE.settings;
+  const cfg = sbConfig();
+  const lastSync = LS.get('nsw_last_sync', null);
+  const wrap = document.getElementById('app-main');
+  wrap.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <h3>Database connection (Supabase)</h3>
+      <div class="sub" style="color:var(--muted);font-size:13px;margin-bottom:14px;">
+        Connect this app to a shared Supabase database so your whole sales team sees the same
+        live data, on any device — online or offline. Leave the fields blank to keep this
+        device running in local-only mode. See <b>SETUP_GUIDE.md</b> for how to create a free
+        Supabase project and run the included <b>schema.sql</b> file.
+      </div>
+      <div class="form-grid">
+        <div class="field full"><label>Supabase project URL</label><input id="sb-url" placeholder="https://xxxxx.supabase.co" value="${esc(cfg.url)}"></div>
+        <div class="field full"><label>Supabase anon public API key</label><input id="sb-key" placeholder="eyJhbGciOi..." value="${esc(cfg.key)}"></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary" id="sb-connect">${ICONS.check} Connect &amp; sync</button>
+        <button class="btn btn-ghost" id="sb-sync-now">Sync now</button>
+        <button class="btn btn-danger" id="sb-disconnect">Disconnect</button>
+      </div>
+      <div style="margin-top:12px;font-size:12.5px;color:var(--muted);">
+        Status: <span class="badge ${SB.ready? 'strong':'none'}">${SB.ready? (navigator.onLine? 'Connected':'Configured — offline') : 'Not connected'}</span>
+        ${lastSync? ' &nbsp; Last synced: '+new Date(lastSync).toLocaleString(): ''}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3>Business details</h3>
+      <div class="form-grid">
+        <div class="field"><label>Business name</label><input id="st-name" value="${esc(s.businessName)}"></div>
+        <div class="field"><label>Tagline</label><input id="st-tag" value="${esc(s.tagline)}"></div>
+        <div class="field"><label>Currency code</label><input id="st-currency" value="${esc(s.currency)}"></div>
+        <div class="field"><label>Payment methods (comma separated)</label><input id="st-payments" value="${esc((s.paymentMethods||[]).join(', '))}"></div>
+        <div class="field"><label>Default region</label><input id="st-region" value="${esc(s.defaultRegion)}"></div>
+        <div class="field"><label>Default district</label><input id="st-district" value="${esc(s.defaultDistrict)}"></div>
+      </div>
+      <button class="btn btn-amber" id="st-save" style="margin-top:16px;">${ICONS.check} Save settings</button>
+    </div>
+
+    <div class="card danger-zone">
+      <h3>Danger zone</h3>
+      <div class="sub" style="color:var(--muted);font-size:13px;margin-bottom:14px;">These actions affect all sales data — local cache and, if connected, the shared database.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-danger" id="st-clear">Clear all sales</button>
+        <button class="btn btn-ghost" id="st-reseed">Restore sample data</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('sb-connect').addEventListener('click', async () => {
+    const url = document.getElementById('sb-url').value.trim();
+    const key = document.getElementById('sb-key').value.trim();
+    if(!url || !key){ toast('Enter both the project URL and anon key'); return; }
+    LS.set('nsw_sb_url', url);
+    LS.set('nsw_sb_key', key);
+    sbInit();
+    if(!SB.ready){ toast('Could not initialize — check the URL/key'); renderSettings(); return; }
+    toast('Connecting…');
+    const ok = await pullAll();
+    if(ok){
+      await flushQueue();
+      applyBranding(); buildNav();
+      toast('Connected — live sync active');
+      sbSubscribe();
+    } else {
+      toast('Connected settings saved, but could not reach the database yet');
+    }
+    setSyncBadge();
+    renderSettings();
+  });
+  document.getElementById('sb-sync-now').addEventListener('click', async () => {
+    if(!SB.ready){ toast('Not connected yet'); return; }
+    toast('Syncing…');
+    await flushQueue();
+    const ok = await pullAll();
+    if(ok){ applyBranding(); buildNav(); toast('Synced'); } else { toast('Sync failed — check your connection'); }
+    setSyncBadge();
+    renderSettings();
+  });
+  document.getElementById('sb-disconnect').addEventListener('click', () => {
+    if(!confirm('Disconnect from the shared database? This device will keep using its local data only.')) return;
+    LS.set('nsw_sb_url','');
+    LS.set('nsw_sb_key','');
+    if(SB.channel){ try{ SB.client.removeChannel(SB.channel); }catch(e){} }
+    SB = { client:null, ready:false, channel:null };
+    toast('Disconnected — running local-only');
+    setSyncBadge();
+    renderSettings();
+  });
+
+  document.getElementById('st-save').addEventListener('click', async () => {
+    STATE.settings = {
+      businessName: document.getElementById('st-name').value.trim() || 'SMART-WASH',
+      tagline: document.getElementById('st-tag').value.trim(),
+      currency: document.getElementById('st-currency').value.trim() || 'TZS',
+      paymentMethods: document.getElementById('st-payments').value.split(',').map(x=>x.trim()).filter(Boolean),
+      defaultRegion: document.getElementById('st-region').value.trim(),
+      defaultDistrict: document.getElementById('st-district').value.trim()
+    };
+    LS.set('nsw_settings', STATE.settings);
+    applyBranding();
+    buildNav();
+    toast('Settings saved');
+    dbUpsert('settings', settingsToRow(STATE.settings));
+  });
+  document.getElementById('st-clear').addEventListener('click', async () => {
+    if(!confirm('This deletes every recorded sale. Continue?')) return;
+    STATE.sales = [];
+    LS.set('nsw_sales', STATE.sales);
+    toast('All sales cleared');
+    renderTab();
+    dbClearTable('sales');
+  });
+  document.getElementById('st-reseed').addEventListener('click', async () => {
+    if(!confirm('Replace current sales with the original sample data?')) return;
+    STATE.sales = DEFAULT_SALES.map(s => ({...s, id: genId()}));
+    LS.set('nsw_sales', STATE.sales);
+    toast('Sample data restored');
+    renderTab();
+    if(SB.ready && navigator.onLine){
+      await dbClearTable('sales');
+      for(const s of STATE.sales) await dbUpsert('sales', s);
+    } else {
+      queueOp('sales','clear',{});
+      STATE.sales.forEach(s => queueOp('sales','upsert',s));
+    }
+  });
+}
+
+/* ============================= START ============================= */
+init();
+
+/* ============================= PWA: INSTALL + OFFLINE ============================= */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Chrome/Edge/Android: capture the browser's install prompt and show our own button
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if(installBtn) installBtn.style.display = 'flex';
+});
+
+if(installBtn){
+  installBtn.addEventListener('click', async () => {
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      installBtn.style.display = 'none';
+    } else {
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      toast(isIOS
+        ? 'On iPhone/iPad: tap Share, then "Add to Home Screen"'
+        : 'Use your browser menu > "Install app" or "Add to Home screen"');
+    }
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  if(installBtn) installBtn.style.display = 'none';
+});
+</script>
+</body>
+</html>
